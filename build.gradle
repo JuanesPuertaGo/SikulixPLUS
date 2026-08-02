@@ -1,0 +1,77 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+// sourceSet propio para compilar el codigo fuente de SikulixPLUS por separado
+// del codigo de la app (org.example), para poder empaquetarlo en su propio jar
+sourceSets {
+    sikulixplus {
+        java {
+            srcDir "$rootDir/SikulixPLUS/java"
+            // requieren org.jruby:jruby-complete (dependencia "optional" del propio
+            // sikulixapi, no usada por ClickTest)
+            exclude "org/sikuli/script/runnerSupport/JRubySupport.java"
+            exclude "org/sikuli/script/runners/JRubyRunner.java"
+        }
+        resources {
+            srcDir "$rootDir/SikulixPLUS/resources"
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+// empaqueta el codigo fuente + recursos de SikulixPLUS en un jar propio,
+// dejado en Libs/
+tasks.register('sikulixplusJar', Jar) {
+    archiveBaseName = 'SikulixPLUS'
+    archiveVersion = '2.0.5'
+    destinationDirectory = file("$rootDir/Libs")
+    from sourceSets.sikulixplus.output
+}
+
+// dependencias directas declaradas en el pom de com.sikulix:sikulixapi:2.0.5
+// (no dependemos del artefacto sikulixapi en si: usamos nuestro propio
+// codigo/jar compilado desde SikulixPLUS). org.jruby:jruby-complete queda
+// afuera a proposito: es "optional" en el pom original y no la usa ClickTest.
+def sikulixDependencies = [
+    'org.python:jython-slim:2.7.2',
+    // jnr-ffi llega transitivamente vía jython-slim pero como dependencia
+    // "runtime" en su pom; SikulixEvaluate.java lo importa directo y lo
+    // necesita tambien en compile-time
+    'com.github.jnr:jnr-ffi:2.1.10',
+    'com.sikulix:sikulix2tigervnc:1.1.4',
+    'org.openpnp:opencv:4.3.0-3',
+    'commons-cli:commons-cli:1.4',
+    'org.apache.commons:commons-exec:1.3',
+    'net.java.dev.jna:jna-platform:5.6.0',
+    'net.oneandone.reflections8:reflections8:0.11.6',
+    'net.sourceforge.tess4j:tess4j:4.5.4',
+    'org.slf4j:slf4j-nop:1.7.28',
+    'net.sf.py4j:py4j:0.10.9.1',
+]
+
+dependencies {
+    sikulixDependencies.each { dep ->
+        sikulixplusImplementation dep
+        implementation dep
+    }
+
+    // el jar de SikulixPLUS compilado a partir de su propio codigo fuente
+    implementation files(sikulixplusJar)
+}
+
+application {
+    mainClass = 'org.example.ClickTest'
+}
